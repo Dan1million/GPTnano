@@ -1,16 +1,28 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from head import MultiHeadAttention
 
 class BigramLanguageModel(nn.Module):
 
-    def __init__(self, vocab_size):
+    def __init__(self, block_size, device, vocab_size, n_embd, head_size):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.sa_heads = MultiHeadAttention(4, block_size, n_embd//4, n_embd) # 4 heads
+        self.lm_head = nn.Linear(n_embd, vocab_size)
+        self.block_size = block_size
+        self.device = device
     
     def forward(self, idx, targets=None):
+        B, T = idx.shape
+
         # Create Batch * time * channels tensor of logits
-        logits = self.token_embedding_table(idx) # (B, T, C) (4, 8, 65)
+        token_emb = self.token_embedding_table(idx) # (B, T, n_embd)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=self.device)) # (T, C)
+        x = token_emb + pos_emb # (B, T, C) --> holds token identites and positions that they occur
+        x = self.sa_heads(x) # apply single headed self attention
+        logits = self.lm_head(x) # (B, T, vocab_size) (4, 8, 65)
 
         if targets is None:
             loss = None
@@ -29,8 +41,10 @@ class BigramLanguageModel(nn.Module):
     def generate(self, idx, max_new_tokens):
         # idx is (B, T) array of indices in the current context
         for _ in range(max_new_tokens):
+            # crop idx to the last block_size tokens
+            idx_cond = idx[:, -self.block_size:]
             # get predictions
-            logits, loss = self(idx)
+            logits, loss = self(idx_cond)
             # focus only on the last time step
             logits = logits[:, -1, :] # (B, C)
             # apply softmax --> get probabilities for each token
