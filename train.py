@@ -4,15 +4,17 @@ from torch.nn import functional as F
 import bigramLanguageModel
 
 # Parameters
-block_size = 8 # Maximum context length
-batch_size = 32 # Maximum number of parallel executions
-max_iters = 5000 # Number of learning iterations
+block_size = 64 # Maximum context length
+batch_size = 256 # Maximum number of parallel executions
+max_iters = 2000 # Number of learning iterations
 eval_interval = 300
-learning_rate = 1e-3
+learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
-n_embd = 32
-head_size = 32
+n_embd = 384
+n_layer = 6
+n_head = 6
+dropout = 0.2
 
 # set torch seed
 torch.manual_seed(1337)
@@ -60,7 +62,7 @@ def estimate_loss():
     return out
 
 # Create language model and offload to GPU if possible
-model = bigramLanguageModel.BigramLanguageModel(block_size, device, vocab_size, n_embd, head_size)
+model = bigramLanguageModel.BigramLanguageModel(block_size, device, vocab_size, n_embd, n_layer, n_head, dropout)
 m = model.to(device)
 
 # Create a pytorch optimizer --> gradient descent!

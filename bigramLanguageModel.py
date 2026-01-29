@@ -5,16 +5,12 @@ from head import MultiHeadAttention
 
 class BigramLanguageModel(nn.Module):
 
-    def __init__(self, block_size, device, vocab_size, n_embd, head_size):
+    def __init__(self, block_size, device, vocab_size, n_embd, n_layer, n_head, dropout):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(
-            Block(n_embd, 4, block_size),
-            Block(n_embd, 4, block_size),
-            Block(n_embd, 4, block_size),
-            nn.LayerNorm(n_embd),
-        )
+        self.blocks = nn.Sequential(*[Block(n_embd, n_head, block_size, dropout) for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         self.block_size = block_size
         self.device = device
@@ -27,6 +23,7 @@ class BigramLanguageModel(nn.Module):
         pos_emb = self.position_embedding_table(torch.arange(T, device=self.device)) # (T, C)
         x = token_emb + pos_emb # (B, T, C) --> holds token identites and positions that they occur
         x = self.blocks(x) # apply multi headed self attention
+        x = self.ln_f(x)
         logits = self.lm_head(x) # (B, T, vocab_size) (4, 8, 65)
 
         if targets is None:
@@ -63,11 +60,11 @@ class BigramLanguageModel(nn.Module):
 # Transformer block
 class Block(nn.Module):
 
-    def __init__(self, n_embd, n_head, block_size):
+    def __init__(self, n_embd, n_head, block_size, dropout):
         super().__init__()
         head_size = n_embd // n_head
-        self.sa = MultiHeadAttention(n_head, block_size, head_size, n_embd)
-        self.ffwd = FeedForward(n_embd)
+        self.sa = MultiHeadAttention(n_head, block_size, head_size, n_embd, dropout)
+        self.ffwd = FeedForward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
     
@@ -79,12 +76,13 @@ class Block(nn.Module):
 # Simple feed forward layer --> Tokens "think" on data individually
 class FeedForward(nn.Module):
 
-    def __init__(self, n_embd):
+    def __init__(self, n_embd, dropout):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(n_embd, 4 * n_embd),
             nn.ReLU(),
             nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(dropout)
         )
     
     def forward(self, x):
