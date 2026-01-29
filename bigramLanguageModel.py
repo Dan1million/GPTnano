@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from head import MultiHeadAttention
+from languageModel.head import MultiHeadAttention
 
 class BigramLanguageModel(nn.Module):
 
@@ -62,8 +62,7 @@ class Block(nn.Module):
 
     def __init__(self, n_embd, n_head, block_size, dropout):
         super().__init__()
-        head_size = n_embd // n_head
-        self.sa = MultiHeadAttention(n_head, block_size, head_size, n_embd, dropout)
+        self.sa = MultiHeadAttention(n_head, block_size, n_embd, dropout)
         self.ffwd = FeedForward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
