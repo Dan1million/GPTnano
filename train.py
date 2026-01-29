@@ -65,6 +65,9 @@ def estimate_loss():
 model = bigramLanguageModel.BigramLanguageModel(block_size, device, vocab_size, n_embd, n_layer, n_head, dropout)
 m = model.to(device)
 
+# Print number of parameters
+print(sum(p.numel() for p in m.parameters()), 'Parameters')
+
 # Create a pytorch optimizer --> gradient descent!
 optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
 
