@@ -9,7 +9,11 @@ class BigramLanguageModel(nn.Module):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.sa_heads = MultiHeadAttention(4, block_size, n_embd//4, n_embd) # 4 heads
+        self.blocks = nn.Sequential(
+            Block(n_embd, 4, block_size),
+            Block(n_embd, 4, block_size),
+            Block(n_embd, 4, block_size)
+        )
         self.lm_head = nn.Linear(n_embd, vocab_size)
         self.block_size = block_size
         self.device = device
@@ -21,7 +25,7 @@ class BigramLanguageModel(nn.Module):
         token_emb = self.token_embedding_table(idx) # (B, T, n_embd)
         pos_emb = self.position_embedding_table(torch.arange(T, device=self.device)) # (T, C)
         x = token_emb + pos_emb # (B, T, C) --> holds token identites and positions that they occur
-        x = self.sa_heads(x) # apply single headed self attention
+        x = self.blocks(x) # apply multi headed self attention
         logits = self.lm_head(x) # (B, T, vocab_size) (4, 8, 65)
 
         if targets is None:
@@ -54,3 +58,30 @@ class BigramLanguageModel(nn.Module):
             # append sampled index to the running sequence
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
         return idx
+    
+# Transformer block
+class Block(nn.Module):
+
+    def __init__(self, n_embd, n_head, block_size):
+        super().__init__()
+        head_size = n_embd // n_head
+        self.sa = MultiHeadAttention(n_head, block_size, head_size, n_embd)
+        self.ffwd = FeedForward(n_embd)
+    
+    def forward(self, x):
+        x = self.sa(x)
+        x = self.ffwd(x)
+        return x
+
+# Simple feed forward layer --> Tokens "think" on data individually
+class FeedForward(nn.Module):
+
+    def __init__(self, n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, n_embd),
+            nn.ReLU(),
+        )
+    
+    def forward(self, x):
+        return self.net(x)
