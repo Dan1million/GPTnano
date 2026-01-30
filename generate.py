@@ -3,7 +3,9 @@ import os
 import sys
 import torch
 from languageModel.bigramLanguageModel import BigramLanguageModel
+from tokenizer.tokenizer import Tokenizer
 
+# Parse argument for directory holding the GPT model
 if len(sys.argv) > 1:
     trained_data_path = sys.argv[1]
 else:
@@ -11,7 +13,7 @@ else:
     print("USAGE: py generate.py <date_time_string>")
     sys.exit()
 
-# Parameters From Config File
+# Check that GPT directory exists
 if os.path.isdir(f'savedResults/{trained_data_path}'):
     with open(f'savedResults/{trained_data_path}/config.json', 'r') as configuration:
         config_data = json.load(configuration)
@@ -19,6 +21,7 @@ else:
     print(f'ERROR: Folder at folder path {trained_data_path} does not exist')
     sys.exit()
 
+# Parameters From Config File
 block_size = config_data['block_size'] # Maximum context length
 n_embd = config_data['n_embd'] # Number of embedding dimensions to use for embeddings
 n_layer = config_data['n_layer'] # Number of transformers used in the language model
@@ -29,16 +32,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu' # Device to run the lang
 with open(f'datasets/{config_data['dataset']}', 'r', encoding='utf-8') as f :
     text = f.read()
 
-# Tokenizaiton --> Each unique character is a token
-chars = sorted(list(set(text)))
-vocab_size = len(chars)
-# Create mapping to convert tokens to integers and vice versa
-stoi = { ch:i for i,ch in enumerate(chars) }
-itos = { i:ch for i,ch in enumerate(chars) }
-encode = lambda string: [stoi[c] for c in string] # Encoder to convert string to a list of integers representing the characters
-decode = lambda list: ''.join([itos[i] for i in list]) # Decoder to convert a list of integers to it's string equivalent
-
-model = BigramLanguageModel(block_size, device, dropout, n_embd, n_heads, n_layer, vocab_size)
+tokenizer = Tokenizer(text)
+model = BigramLanguageModel(block_size, device, dropout, n_embd, n_heads, n_layer, tokenizer.vocab_size())
 model.load_state_dict(torch.load(f'savedResults/{trained_data_path}/result.pt', weights_only=True))
 model.eval()
 m = model.to(device)
@@ -46,5 +41,5 @@ m = model.to(device)
 # Create input vector representing input token index
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 
-# Generate new tokens based on our trained ML model!
-print(decode(m.generate(idx = context, max_new_tokens=500)[0].tolist()))
+# Generate new tokens using the GPT model!
+print(tokenizer.decode(m.generate(idx = context, max_new_tokens=500)[0].tolist()))

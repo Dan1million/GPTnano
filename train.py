@@ -3,6 +3,7 @@ import os
 import torch
 from datetime import datetime
 from languageModel.bigramLanguageModel import BigramLanguageModel
+from tokenizer.tokenizer import Tokenizer
 
 # Parameters From Config File
 with open('config/config.json', 'r') as configuration:
@@ -28,18 +29,9 @@ with open(f'datasets/{config_data['dataset']}', 'r', encoding='utf-8') as f :
     text = f.read()
 
 
-# Tokenization --> Each unique character is a token
-chars = sorted(list(set(text)))
-vocab_size = len(chars)
-# Create mapping to convert tokens to integers and vice versa
-stoi = { ch:i for i,ch in enumerate(chars) }
-itos = { i:ch for i,ch in enumerate(chars) }
-encode = lambda string: [stoi[c] for c in string] # Encoder to convert string to a list of integers representing the characters
-decode = lambda list: ''.join([itos[i] for i in list]) # Decoder to convert a list of integers to it's string equivalent
-
-
 # Split the dataset into a training dataset and validation dataset
-data = torch.tensor(encode(text), dtype=torch.long)
+tokenizer = Tokenizer(text)
+data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
 n = int(0.8*len(data))
 train_data = data[:n] # 90% to train
 val_data = data[n:] # 10% to test
@@ -77,7 +69,7 @@ def estimate_loss():
     return out
 
 # Create the bigram language model and offload to GPU if possible
-model = BigramLanguageModel(block_size, device, dropout, n_embd, n_heads, n_layer, vocab_size)
+model = BigramLanguageModel(block_size, device, dropout, n_embd, n_heads, n_layer, tokenizer.vocab_size())
 m = model.to(device)
 
 # Output number of parameters to command line
