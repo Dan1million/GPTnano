@@ -13,8 +13,20 @@ This project focuses on understanding GPT internals.
 ## Setup
 
 1. Install PyTorch  
-2. Clone this repository  
-3. Run the command: ```py train.py```
+2. Clone this repository
+
+### Training
+Run ```py train.py``` which does the following
+1. Read the current configuration under config\config.json
+2. Train the model based on the configuration
+3. Save the configuration used and training result to **savedResults/\<dateTimeString\>/**
+
+### Run The GPT Model
+Run ```py generate.py <dateTimeString>```  which does the following
+1. Read the configuration used and trained data from **savedResults/\<dateTimeString\>/**
+2. Run the GPT model
+
+Note: an example trained model is under **savedResults/2026-01-29_17-30-23**
 
 ## Learnings
 This was incredibly fun and difficult to implement. Before following along with Andrej Karpathy's video I had watched the series by 3Blue1Brown that explains at a high level the math and computations that go into creating a basic neural network and GPT model [link to the playlist here](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi). From there Andrej Karpathy's video provided a step by step guide on the actual implementation of the theory that I had learned in a way that made the concepts approachable and simple to implement.

@@ -1,22 +1,30 @@
-import torch;
+import json
+import os
+import torch
+from datetime import datetime
 from languageModel.bigramLanguageModel import BigramLanguageModel
 
-# Parameters
-block_size = 64 # Maximum context length
+# Parameters From Config File
+with open('config/config.json', 'r') as configuration:
+    config_data = json.load(configuration)
+
+block_size = config_data['block_size'] # Maximum context length
+n_embd = config_data['n_embd'] # Number of embedding dimensions to use for embeddings
+n_layer = config_data['n_layer'] # Number of transformers used in the language model
+n_heads = config_data['n_heads'] # Number of heads in each multi-headed attention block
+dropout = config_data['dropout'] # Dropout percentage to maintain evolution
+
+# Training Specific Parameters
 batch_size = 256 # Maximum number of parallel executions
-max_iters = 5000 # Number of learning iterations
-eval_interval = 300 # Number of iterations break before outputing evaluation
-learning_rate = 3e-4 # Learning rate
 device = 'cuda' if torch.cuda.is_available() else 'cpu' # Device to run the language model on
+eval_interval = 300 # Number of iterations break before outputing evaluation
 eval_iters = 200 # Number of batches to evaluate in the evaluation step
-n_embd = 384 # Number of embedding dimensions to use for embeddings
-n_layer = 6 # Number of transformers used in the language model
-n_heads = 6 # Number of heads in each multi-headed attention block
-dropout = 0.2 # Dropout percentage to maintain evolution
+learning_rate = 3e-4 # Learning rate
+max_iters = 5000 # Number of learning iterations
 
 
 # Read in the data set
-with open('input.txt', 'r', encoding='utf-8') as f :
+with open(f'datasets/{config_data['dataset']}', 'r', encoding='utf-8') as f :
     text = f.read()
 
 
@@ -32,7 +40,7 @@ decode = lambda list: ''.join([itos[i] for i in list]) # Decoder to convert a li
 
 # Split the dataset into a training dataset and validation dataset
 data = torch.tensor(encode(text), dtype=torch.long)
-n = int(0.9*len(data))
+n = int(0.8*len(data))
 train_data = data[:n] # 90% to train
 val_data = data[n:] # 10% to test
 
@@ -93,8 +101,10 @@ for iter in range(max_iters):
     loss.backward()
     optimizer.step()
 
-# Create input vector representing input token index
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
+# Create a directory for the current time and save the configuration and trained result
+date_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+os.makedirs(f'savedResults/{date_string}', exist_ok=True)
+torch.save(m.state_dict(), f'savedResults/{date_string}/result.pt')
 
-# Generate new tokens based on our trained ML model!
-print(decode(m.generate(idx = context, max_new_tokens=500)[0].tolist()))
+with open(f'savedResults/{date_string}/config.json', 'w') as json_file:
+    json.dump(config_data, json_file, indent=4)
