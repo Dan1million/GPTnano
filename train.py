@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import torch
@@ -5,36 +6,43 @@ from datetime import datetime
 from languageModel.bigramLanguageModel import BigramLanguageModel
 from tokenizer.tokenizer import Tokenizer
 
+# CLI Parameters
+parser = argparse.ArgumentParser(description="Train a Bigram Language Model")
+parser.add_argument('--config', type=str, default='config/config.json', help='Path to the configuration file')
+parser.add_argument('--dataset', type=str, default='datasets/tinyShakespeare.txt', help='Path to the dataset file')
+parser.add_argument('--output', type=str, default=f'savedResults/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}', help='Directory to save the trained model, cofiguration, and checkpoints')
+args = parser.parse_args()
+
 # Parameters From Config File
-with open('config/config.json', 'r') as configuration:
+with open(args.config, 'r') as configuration:
     config_data = json.load(configuration)
 
+batch_size = config_data['batch_size'] # Maximum number of parallel executions
 block_size = config_data['block_size'] # Maximum context length
+checkpoint_interval = config_data['checkpoint_interval'] # Number of iterations between saving model checkpoints
+eval_interval = config_data['eval_interval'] # Number of iterations break before outputing evaluation
+eval_iters = config_data['eval_iters'] # Number of batches to evaluate in the evaluation step
+learning_rate = config_data['learning_rate'] # Learning rate
+max_iters = config_data['max_iters'] # Number of learning iterations
 n_embd = config_data['n_embd'] # Number of embedding dimensions to use for embeddings
 n_layer = config_data['n_layer'] # Number of transformers used in the language model
 n_heads = config_data['n_heads'] # Number of heads in each multi-headed attention block
 dropout = config_data['dropout'] # Dropout percentage to maintain evolution
-
-# Training Specific Parameters
-batch_size = 256 # Maximum number of parallel executions
 device = 'cuda' if torch.cuda.is_available() else 'cpu' # Device to run the language model on
-eval_interval = 300 # Number of iterations break before outputing evaluation
-eval_iters = 200 # Number of batches to evaluate in the evaluation step
-learning_rate = 3e-4 # Learning rate
-max_iters = 5000 # Number of learning iterations
 
 
-# Read in the data set
-with open(f'datasets/{config_data['dataset']}', 'r', encoding='utf-8') as f :
+with open(args.dataset, 'r', encoding='utf-8') as f : # Read in the data set
     text = f.read()
 
+os.makedirs(args.output, exist_ok=True) # Setup output directory
+os.makedirs(f'{args.output}/checkpoints', exist_ok=True) # Setup checkpoints directory
 
 # Split the dataset into a training dataset and validation dataset
 tokenizer = Tokenizer(text)
 data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
 n = int(0.8*len(data))
-train_data = data[:n] # 90% to train
-val_data = data[n:] # 10% to test
+train_data = data[:n] # 80% to train
+val_data = data[n:] # 20% to test
 
 
 def get_batch(dataset):
@@ -92,6 +100,13 @@ for iter in range(max_iters):
         losses = estimate_loss()
         print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, lr {scheduler.get_last_lr()[0]:.6f}")
 
+    if iter % checkpoint_interval == 0: # Save model checkpoints
+        os.makedirs(f'{args.output}/checkpoints/iteration_{iter}', exist_ok=True)
+        torch.save(m.state_dict(), f'{args.output}/checkpoints/iteration_{iter}/result.pt')
+        torch.save(optimizer.state_dict(), f'{args.output}/checkpoints/iteration_{iter}/optimizer.pt')
+        with open(f'{args.output}/checkpoints/iteration_{iter}/config.json', 'w') as json_file:
+            json.dump(config_data, json_file, indent=4)
+
     # Sample the training data
     xb, yb = get_batch('train')
 
@@ -103,10 +118,9 @@ for iter in range(max_iters):
     optimizer.step()
     scheduler.step()
 
-# Create a directory for the current time and save the configuration and trained result
-date_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-os.makedirs(f'savedResults/{date_string}', exist_ok=True)
-torch.save(m.state_dict(), f'savedResults/{date_string}/result.pt')
-
-with open(f'savedResults/{date_string}/config.json', 'w') as json_file:
+# Save final results
+os.makedirs(f'{args.output}/checkpoints/final', exist_ok=True)
+torch.save(m.state_dict(), f'{args.output}/checkpoints/final/result.pt')
+torch.save(optimizer.state_dict(), f'{args.output}/checkpoints/final/optimizer.pt')
+with open(f'{args.output}/checkpoints/final/config.json', 'w') as json_file:
     json.dump(config_data, json_file, indent=4)
