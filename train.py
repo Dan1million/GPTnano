@@ -99,6 +99,7 @@ for iter in range(max_iters):
     logits, loss = m(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
+    torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0) # Gradient clipping to avoid exploding gradients
     optimizer.step()
     scheduler.step()
 
