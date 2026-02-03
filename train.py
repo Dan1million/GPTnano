@@ -3,6 +3,8 @@ import json
 import os
 import torch
 from datetime import datetime
+from torch.amp import autocast
+from torch.amp import GradScaler
 from languageModel.bigramLanguageModel import BigramLanguageModel
 from tokenizer.tokenizer import Tokenizer
 
@@ -77,7 +79,7 @@ def get_batch(dataset):
 @torch.no_grad() # we will not call backward for back propogation in this function --> reduces memory footprint
 def estimate_loss():
     """
-        Esitmates the current training data loss and validation data loss
+        Estimates the current training data loss and validation data loss
     """
     out = {}
     model.eval()
@@ -85,7 +87,8 @@ def estimate_loss():
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
             X, Y = get_batch(dataset)
-            logits, loss = model(X, Y)
+            with autocast(device_type=device, dtype=torch.float16, enabled=(device == 'cuda')):
+                logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[dataset] = losses.mean()
     model.train()
@@ -131,8 +134,12 @@ else:
     cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cosine_iters)
     scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_iters])
 
+# Initialize mixed precision training scaler
+scaler = GradScaler(device=device, enabled=(device == 'cuda'))
+
 # Output number of parameters to command line
 print("Number of parameters:", sum(p.numel() for p in m.parameters()), 'Parameters')
+print(f"Mixed precision training: {'Enabled' if device == 'cuda' else 'Disabled (CPU mode)'}")
 
 current_iter = 0
 if not from_scratch:
@@ -156,12 +163,15 @@ for iter in range(current_iter, max_iters):
     # Sample the training data
     xb, yb = get_batch('train')
 
-    # Evaluate the loss and perform gradient descent
-    logits, loss = m(xb, yb)
+    # Evaluate the loss and perform gradient descent with mixed precision
     optimizer.zero_grad(set_to_none=True)
-    loss.backward()
+    with autocast(device_type=device, dtype=torch.float16, enabled=(device == 'cuda')):
+        logits, loss = m(xb, yb)
+    scaler.scale(loss).backward()
+    scaler.unscale_(optimizer) # Unscale before gradient clipping
     torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0) # Gradient clipping to avoid exploding gradients
-    optimizer.step()
+    scaler.step(optimizer)
+    scaler.update()
     scheduler.step()
 
 # Save final results
