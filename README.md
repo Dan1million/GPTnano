@@ -236,17 +236,17 @@ This implementation is inspired by:
 After training, the model can generate coherent text in the style of its training data:
 
 ```
-KING RICHARD III:
-Let'st meet; and I shall be spiced with
-To faint my friends and consent way to thee.
+----- CornellNano-172 Text Generation -----
 
-FLORIZEL:
-What said Warwick,
-As caugh I do, you were hused.
+Post: 527/2010
 
-LEONTES:
-Ay, so but a horse, good sir, a word;
-And to your mother hath young.
+Simpson:
+
+DT: Doesn’t do that in your life? Can you expect anything to do or follow what you’re doing for?
+
+JS: Right now I’m going to announce all kinds of resolutions that apply to just file the links. Standard applications by calling in compared services most likely to increase the production of information that allows new connection between just above, per Attorney General Eric DeCoy conducted in June 2004. Photo courtesy of Standard Allowance Exhibitions-y JustinATTORNEY(D-
+
+----- Generation Complete -----
 ```
 
 ## How I got better results
