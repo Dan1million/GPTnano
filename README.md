@@ -228,7 +228,7 @@ This implementation is inspired by:
 - Checkpointing system with resume capability
 - Use of an external configuration file
 - Itnegrating OpenWebText using Hugging Face
-- Vocabulary caching to reduce the amoutn of time to restart training
+- Vocabulary caching to reduce the amount of time to restart training
 - Automatic Mixed Precision training to speed up training
 
 ## Example Output
